@@ -1,2 +1,4 @@
 ﻿  main.cpp
+C:\Users\purpl\OneDrive\Desktop\graphics\AdavncedGraphics\GPR300_EmptyWindow\GPR300_EmptyWindow\main.cpp(50,61): warning C4305: 'initializing': truncation from 'double' to 'float'
+C:\Users\purpl\OneDrive\Desktop\graphics\AdavncedGraphics\GPR300_EmptyWindow\GPR300_EmptyWindow\main.cpp(51,66): warning C4305: 'initializing': truncation from 'double' to 'float'
   GPR300_EmptyWindow.vcxproj -> C:\Users\purpl\OneDrive\Desktop\graphics\AdavncedGraphics\GPR300_EmptyWindow\x64\Debug\GPR300_EmptyWindow.exe
