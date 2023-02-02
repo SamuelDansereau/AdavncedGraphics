@@ -41,6 +41,18 @@ const float MOUSE_SENSITIVITY = 0.1f;
 glm::vec3 bgColor = glm::vec3(0);
 float exampleSliderFloat = 0.0f;
 
+namespace ew {
+
+}
+
+struct Transform {
+	glm::mat4 getModelMatrix() {
+		return glm::mat4(1);
+	}
+};
+
+Transform transforms[8];
+
 int main() {
 	if (!glfwInit()) {
 		printf("glfw failed to init");
@@ -100,6 +112,11 @@ int main() {
 
 		//Draw
 		shader.use();
+		for (size_t i = 0; i < NUM_CUBES; i++) {
+			shader.setMat4("_Model", transforms[i].getModelMatrix());
+			cubeMesh.draw();
+		}
+		shader.setMat4("_Model", glm::mat4(1));
 
 		cubeMesh.draw();
 
