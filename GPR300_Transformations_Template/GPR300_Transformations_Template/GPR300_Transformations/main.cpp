@@ -45,10 +45,70 @@ namespace ew {
 
 }
 
+struct Camera {
+
+};
+
 struct Transform {
-	glm::mat4 getModelMatrix() {
-		return glm::mat4(1);
+	glm::mat4 getModelMatrix(glm::vec3 t) {
+		return scale(t) * rotate(t) ;
 	}
+	glm::mat4 scale(glm::vec3 s)
+	{
+		return glm::mat4
+		(
+			s.x, 0, 0, 0,
+			0, s.y, 0, 0,
+			0, 0, s.z, 0,
+			0, 0, 0, 1
+		);
+	}
+	glm::mat4 rotate(glm::vec3 r)
+	{
+		glm::mat4 pitch = glm::mat4
+		(
+			1, 0, 0, 0,
+			0, cos(r.x), sin(r.x), 0,
+			0, -sin(r.x), cos(r.x), 0,
+			0, 0, 0, 1
+		);
+		glm::mat4 yaw = glm::mat4
+		(
+			cos(r.y), 0, -sin(r.y), 0,
+			0, 1, 0, 0,
+			sin(r.y), 0, cos(r.y), 0,
+			0, 0, 0, 1
+		);
+		glm::mat4 roll = glm::mat4
+		(
+			cos(r.z), sin(r.z), 0, 0,
+			-sin(r.z), cos(r.z), 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1
+		);
+		return pitch * yaw * roll;
+	}
+	glm::mat4 tranlate(glm::vec3 t, glm::vec3 v)
+	{
+		glm::mat4 Ttv = glm::mat4
+		(
+			1,0,0,0,
+			0,1,0,0,
+			0,0,1,0,
+			t.x + v.x,t.y + v.y,t.z + v.z,1
+		);
+		return Ttv;
+	}
+	glm::mat4 position(glm::vec3 t) 
+	{
+		return glm::mat4(
+			1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 1, 0,
+			t.x, t.y, t.z, 1
+		);
+	}
+
 };
 
 Transform transforms[8];
@@ -112,10 +172,10 @@ int main() {
 
 		//Draw
 		shader.use();
-		for (size_t i = 0; i < NUM_CUBES; i++) {
+		/*for (size_t i = 0; i < NUM_CUBES; i++) {
 			shader.setMat4("_Model", transforms[i].getModelMatrix());
 			cubeMesh.draw();
-		}
+		}*/
 		shader.setMat4("_Model", glm::mat4(1));
 
 		cubeMesh.draw();
