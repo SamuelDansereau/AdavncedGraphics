@@ -39,22 +39,42 @@ const int MOUSE_TOGGLE_BUTTON = 1;
 const float MOUSE_SENSITIVITY = 0.1f;
 
 glm::vec3 bgColor = glm::vec3(0);
-float exampleSliderFloat = 0.0f;
+
 
 namespace ew {
 
 }
 
 struct Camera {
-
+	glm::vec3 pos;
+	glm::vec3 targ;
+	glm::vec3 up = glm::vec3(0, 1, 0);
+	float orbitRadius = 0.0f;
+	float orbitSpeed = 0.0f;
+	float fov = 0.0f;
+	float orthoHeight = 0.0f;
+	bool orthoTogg = true;
+	
+	glm::mat4 getViewMatrix()
+	{
+		glm::vec3 forward = glm::normalize(targ - pos);
+		glm::vec3 right = glm::normalize(cross(forward, up));
+		glm::vec3 upwards = glm::normalize(cross(right, forward));
+		forward = -forward;
+	}
+	glm::mat4 getProjectonMatrix();
 };
 
 struct Transform {
-	glm::mat4 getModelMatrix(glm::vec3 t) {
-		return scale(t) * rotate(t) ;
+
+	glm::vec3 pos, rot, scl;
+
+	glm::mat4 getModelMatrix() {
+		return position(pos) * rotate(rot) * scale(scl);
 	}
 	glm::mat4 scale(glm::vec3 s)
 	{
+
 		return glm::mat4
 		(
 			s.x, 0, 0, 0,
@@ -88,18 +108,7 @@ struct Transform {
 		);
 		return pitch * yaw * roll;
 	}
-	glm::mat4 tranlate(glm::vec3 t, glm::vec3 v)
-	{
-		glm::mat4 Ttv = glm::mat4
-		(
-			1,0,0,0,
-			0,1,0,0,
-			0,0,1,0,
-			t.x + v.x,t.y + v.y,t.z + v.z,1
-		);
-		return Ttv;
-	}
-	glm::mat4 position(glm::vec3 t) 
+	glm::mat4 position(glm::vec3 t)
 	{
 		return glm::mat4(
 			1, 0, 0, 0,
@@ -111,9 +120,11 @@ struct Transform {
 
 };
 
-Transform transforms[8];
+
 
 int main() {
+	Transform transform;
+	Camera cam;
 	if (!glfwInit()) {
 		printf("glfw failed to init");
 		return 1;
@@ -143,7 +154,10 @@ int main() {
 
 	MeshData cubeMeshData;
 	createCube(1.0f, 1.0f, 1.0f, cubeMeshData);
-
+	createCube(1.0f, 1.0f, 1.0f, cubeMeshData);
+	createCube(1.0f, 1.0f, 1.0f, cubeMeshData);
+	createCube(1.0f, 1.0f, 1.0f, cubeMeshData);
+	createCube(1.0f, 1.0f, 1.0f, cubeMeshData);
 	Mesh cubeMesh(&cubeMeshData);
 
 	//Enable back face culling
@@ -157,6 +171,14 @@ int main() {
 	//Enable depth testing
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
+
+	cam.pos = glm::vec3 (0, 0, 3);
+	cam.targ = glm::vec3 (0, 0, 0);
+
+		
+	transform.pos = glm::vec3(float(rand() % 201), float(rand() % 201), float(rand() % 201));
+	transform.rot = glm::vec3(float(rand() % 181), float(rand() % 181), float(rand() % 181));
+	transform.scl = glm::vec3(float(rand() % 3), float(rand() % 3), float(rand() % 3));
 
 	while (!glfwWindowShouldClose(window)) {
 		glClearColor(bgColor.r,bgColor.g,bgColor.b, 1.0f);
@@ -176,13 +198,21 @@ int main() {
 			shader.setMat4("_Model", transforms[i].getModelMatrix());
 			cubeMesh.draw();
 		}*/
-		shader.setMat4("_Model", glm::mat4(1));
+
+			shader.setMat4("_Model", transform.getModelMatrix());
+			shader.setMat4("_Projection", cam.getProjectonMatrix());
+			shader.setMat4("_View", cam.getViewMatrix());
+		
 
 		cubeMesh.draw();
 
 		//Draw UI
 		ImGui::Begin("Settings");
-		ImGui::SliderFloat("Example slider", &exampleSliderFloat, 0.0f, 10.0f);
+		ImGui::SliderFloat("Orbit Radius", &cam.orbitRadius, 0.0f, 10.0f);
+		ImGui::SliderFloat("Orbit Speed", &cam.orbitSpeed, 0.0f, 10.0f);
+		ImGui::SliderFloat("FOV", &cam.fov, 0.0f, 150.0f);
+		ImGui::SliderFloat("Orthographic Height", &cam.orthoHeight, 0.0f, 10.0f);
+		ImGui::Checkbox("Orthographic Toggle", &cam.orthoTogg);
 		ImGui::End();
 
 		ImGui::Render();
