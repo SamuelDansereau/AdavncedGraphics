@@ -41,18 +41,16 @@ const float MOUSE_SENSITIVITY = 0.1f;
 glm::vec3 bgColor = glm::vec3(0);
 
 
-namespace ew {
 
-}
 
 struct Camera {
-	glm::vec3 pos;
-	glm::vec3 targ;
+	glm::vec3 pos = glm::vec3(0, 0, 10);
+	glm::vec3 targ = glm::vec3(0, 0, 0);
 	glm::vec3 up = glm::vec3(0, 1, 0);
-	float orbitRadius = 0.0f;
-	float orbitSpeed = 0.0f;
-	float fov = 0.0f;
-	float orthoHeight = 0.0f;
+	float orbitRadius = 10.0f;
+	float orbitSpeed = 1.0f;
+	float fov = 50.0f;
+	float orthoHeight = 10.0f;
 	bool orthoTogg = true;
 	
 	glm::mat4 getViewMatrix()
@@ -61,8 +59,59 @@ struct Camera {
 		glm::vec3 right = glm::normalize(cross(forward, up));
 		glm::vec3 upwards = glm::normalize(cross(right, forward));
 		forward = -forward;
+		glm::mat4 rotView = glm::mat4(
+			right.x, upwards.x, forward.x, 0,
+			right.y, upwards.y, forward.y, 0,
+			right.z, upwards.z, forward.z, 0,
+			0,0,0,1
+		);
+
+		glm::mat4 transView = glm::mat4(
+			1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 1, 0,
+			-pos.x, - pos.y, -pos.z, 1
+		);
+
+		return rotView * transView;
 	}
-	glm::mat4 getProjectonMatrix();
+	glm::mat4 getProjectonMatrix()
+	{
+		if (orthoTogg)
+		{
+			return ortho(orthoHeight, (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, .01f, 100.0f);
+		}
+		else
+			return persp(fov, (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, .01f, 100.0f);
+	}
+
+	glm::mat4 ortho(float h, float aspectRatio, float nearPlane, float farPlane)
+	{
+		float r = h*aspectRatio/2;
+		float l = -r;
+		float t = h / 2;
+		float b = -t;
+
+		return glm::mat4
+		(
+			2 / (r - l), 0, 0, 0,
+			0, 2 / (t - b), 0, 0,
+			0, 0, -2 / (farPlane - nearPlane), 0,
+			-(r + l) / (r - l), -(t + b) / (t - b), -(farPlane + nearPlane) / (farPlane - nearPlane), 1
+		);
+	}
+
+	glm::mat4 persp(float fovy, float aspectRatio, float nearPlane, float farPlane)
+	{
+		float c = tan(glm::radians(fovy) / 2);
+		return glm::mat4
+		(
+			1 / (aspectRatio * c), 0, 0, 0,
+			0, 1 / c, 0, 0,
+			0, 0, -((farPlane + nearPlane)/(farPlane-nearPlane)), -1,
+			0, 0, -((2*farPlane*nearPlane)/(farPlane-nearPlane)), 1
+		);
+	}
 };
 
 struct Transform {
@@ -123,7 +172,7 @@ struct Transform {
 
 
 int main() {
-	Transform transform;
+	Transform transforms[5];
 	Camera cam;
 	if (!glfwInit()) {
 		printf("glfw failed to init");
@@ -154,10 +203,6 @@ int main() {
 
 	MeshData cubeMeshData;
 	createCube(1.0f, 1.0f, 1.0f, cubeMeshData);
-	createCube(1.0f, 1.0f, 1.0f, cubeMeshData);
-	createCube(1.0f, 1.0f, 1.0f, cubeMeshData);
-	createCube(1.0f, 1.0f, 1.0f, cubeMeshData);
-	createCube(1.0f, 1.0f, 1.0f, cubeMeshData);
 	Mesh cubeMesh(&cubeMeshData);
 
 	//Enable back face culling
@@ -171,14 +216,13 @@ int main() {
 	//Enable depth testing
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
-
-	cam.pos = glm::vec3 (0, 0, 3);
-	cam.targ = glm::vec3 (0, 0, 0);
-
-		
-	transform.pos = glm::vec3(float(rand() % 201), float(rand() % 201), float(rand() % 201));
-	transform.rot = glm::vec3(float(rand() % 181), float(rand() % 181), float(rand() % 181));
-	transform.scl = glm::vec3(float(rand() % 3), float(rand() % 3), float(rand() % 3));
+	for (int i = 0; i < 5; i++)
+	{
+		int randScale = (rand() % 3) + 1;
+		transforms[i].pos = glm::vec3((rand() % (i+5)), (rand() % (i+5)), (rand() % (i+5)));
+		transforms[i].rot = glm::vec3((rand() % (181+1)), (rand() % (181+i)), (rand() % (181+i)));
+		transforms[i].scl = glm::vec3(randScale, randScale, randScale);
+	}
 
 	while (!glfwWindowShouldClose(window)) {
 		glClearColor(bgColor.r,bgColor.g,bgColor.b, 1.0f);
@@ -199,19 +243,23 @@ int main() {
 			cubeMesh.draw();
 		}*/
 
-			shader.setMat4("_Model", transform.getModelMatrix());
-			shader.setMat4("_Projection", cam.getProjectonMatrix());
-			shader.setMat4("_View", cam.getViewMatrix());
+		for (int i = 0; i < 5; i++)
+		{
+			shader.setMat4("_Model", transforms[i].getModelMatrix());
+			cubeMesh.draw();
+		}
+		shader.setMat4("_Projection", cam.getProjectonMatrix());
+		shader.setMat4("_View", cam.getViewMatrix());
 		
-
-		cubeMesh.draw();
+		cam.pos.x = cos(time * cam.orbitSpeed) * cam.orbitRadius;
+		cam.pos.z = sin(time * cam.orbitSpeed) * cam.orbitRadius;
 
 		//Draw UI
 		ImGui::Begin("Settings");
-		ImGui::SliderFloat("Orbit Radius", &cam.orbitRadius, 0.0f, 10.0f);
+		ImGui::SliderFloat("Orbit Radius", &cam.orbitRadius, 10.0f, 25.0f);
 		ImGui::SliderFloat("Orbit Speed", &cam.orbitSpeed, 0.0f, 10.0f);
 		ImGui::SliderFloat("FOV", &cam.fov, 0.0f, 150.0f);
-		ImGui::SliderFloat("Orthographic Height", &cam.orthoHeight, 0.0f, 10.0f);
+		ImGui::SliderFloat("Orthographic Height", &cam.orthoHeight, 10.0f, 25.0f);
 		ImGui::Checkbox("Orthographic Toggle", &cam.orthoTogg);
 		ImGui::End();
 
