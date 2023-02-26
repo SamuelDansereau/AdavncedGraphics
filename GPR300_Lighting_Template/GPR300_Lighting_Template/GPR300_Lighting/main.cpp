@@ -56,6 +56,24 @@ glm::vec3 lightPosition = glm::vec3(0.0f, 3.0f, 0.0f);
 
 bool wireFrame = false;
 
+struct Material
+{
+	glm::vec3 Color;
+	float ambientK, diffuseK, specularK = 0;
+	float shininess = 1;
+};
+
+
+struct Light {
+	glm::vec3 pos;
+	glm::vec3 color;
+	float intensity;
+};
+
+Light light;
+Material mat;
+#define MAX_LIGHTS 8
+
 int main() {
 	if (!glfwInit()) {
 		printf("glfw failed to init");
@@ -151,11 +169,26 @@ int main() {
 		deltaTime = time - lastFrameTime;
 		lastFrameTime = time;
 
+		litShader.setVec3("camPos", camera.getPosition());
+
+		litShader.setVec3("_Material.Color", glm::vec3(255, 255, 255));
+		litShader.setFloat("_Material.AmbinetK", mat.ambientK);
+		litShader.setFloat("_Material.DiffuseK", mat.diffuseK);
+		litShader.setFloat("_Material.SpecularK", mat.specularK);
+		litShader.setFloat("_Material.Shininess", mat.shininess);
+
 		//Draw
 		litShader.use();
 		litShader.setMat4("_Projection", camera.getProjectionMatrix());
 		litShader.setMat4("_View", camera.getViewMatrix());
 		litShader.setVec3("_LightPos", lightTransform.position);
+
+		litShader.setVec3("_Light.color", lightColor);
+		litShader.setVec3("_Light.pos", light.pos);
+		litShader.setFloat("_Light.intensity", light.intensity);
+
+
+
 		//Draw cube
 		litShader.setMat4("_Model", cubeTransform.getModelMatrix());
 		cubeMesh.draw();
@@ -181,10 +214,22 @@ int main() {
 		sphereMesh.draw();
 
 		//Draw UI
-		ImGui::Begin("Settings");
+		ImGui::Begin("Material");
 
-		ImGui::ColorEdit3("Light Color", &lightColor.r);
-		ImGui::DragFloat3("Light Position", &lightTransform.position.x);
+		ImGui::ColorEdit3("Material Color", &mat.Color.r);
+		ImGui::SliderFloat("Ambient",&mat.ambientK, 0, 1);
+		ImGui::SliderFloat("Diffuse", &mat.diffuseK, 0, 1);
+		ImGui::SliderFloat("Specular", &mat.specularK, 0, 1);
+		ImGui::SliderFloat("Shininess", &mat.shininess, 1, 512);
+
+		ImGui::End();
+
+		ImGui::Begin("posectional Light");
+		
+		ImGui::ColorEdit3("Light Color", &light.color.r);
+		ImGui::DragFloat3("Light posection", &light.pos.x);
+		ImGui::SliderFloat("Light Intensity", &light.intensity, 0, 1);
+		
 		ImGui::End();
 
 		ImGui::Render();
