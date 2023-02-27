@@ -175,6 +175,12 @@ int main() {
 		deltaTime = time - lastFrameTime;
 		lastFrameTime = time;
 
+		//Draw
+		litShader.use();
+		litShader.setMat4("_Projection", camera.getProjectionMatrix());
+		litShader.setMat4("_View", camera.getViewMatrix());
+		litShader.setVec3("_LightPos", lightTransform.position);
+
 		litShader.setVec3("camPos", camera.getPosition());
 
 		litShader.setVec3("_Material.Color", mat.Color);
@@ -186,18 +192,6 @@ int main() {
 		litShader.setVec3("_dLight.dir", dlight.dir);
 		litShader.setVec3("_dLight.color", dlight.color);
 		litShader.setFloat("_dLight.intensity", dlight.intensity);
-
-
-		//Draw
-		litShader.use();
-		litShader.setMat4("_Projection", camera.getProjectionMatrix());
-		litShader.setMat4("_View", camera.getViewMatrix());
-		litShader.setVec3("_LightPos", lightTransform.position);
-
-		litShader.setVec3("_Light.color", lightColor);
-		litShader.setVec3("_Light.dir", dlight.dir);
-		litShader.setFloat("_Light.intensity", dlight.intensity);
-
 
 
 		//Draw cube
