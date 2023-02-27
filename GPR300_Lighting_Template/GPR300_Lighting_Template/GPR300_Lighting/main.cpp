@@ -58,8 +58,8 @@ bool wireFrame = false;
 
 struct Material
 {
-	glm::vec3 Color;
-	float ambientK, diffuseK, specularK = 0;
+	glm::vec3 Color = glm::vec3(250,250,250);
+	float ambientK = 0.4, diffuseK = 0.16, specularK = 0.9;
 	float shininess = 1;
 };
 
@@ -70,7 +70,13 @@ struct Light {
 	float intensity;
 };
 
-Light light;
+struct DirLight {
+	glm::vec3 dir = glm::vec3(0,-1,0);
+	glm::vec3 color = glm::vec3(250, 250, 250);
+	float intensity = 1.0;
+};
+
+DirLight dlight;
 Material mat;
 #define MAX_LIGHTS 8
 
@@ -171,11 +177,16 @@ int main() {
 
 		litShader.setVec3("camPos", camera.getPosition());
 
-		litShader.setVec3("_Material.Color", glm::vec3(255, 255, 255));
-		litShader.setFloat("_Material.AmbinetK", mat.ambientK);
-		litShader.setFloat("_Material.DiffuseK", mat.diffuseK);
-		litShader.setFloat("_Material.SpecularK", mat.specularK);
-		litShader.setFloat("_Material.Shininess", mat.shininess);
+		litShader.setVec3("_Material.Color", mat.Color);
+		litShader.setFloat("_Material.ambinetK", mat.ambientK);
+		litShader.setFloat("_Material.diffuseK", mat.diffuseK);
+		litShader.setFloat("_Material.specularK", mat.specularK);
+		litShader.setFloat("_Material.shininess", mat.shininess);
+
+		litShader.setVec3("_dLight.dir", dlight.dir);
+		litShader.setVec3("_dLight.color", dlight.color);
+		litShader.setFloat("_dLight.intensity", dlight.intensity);
+
 
 		//Draw
 		litShader.use();
@@ -184,8 +195,8 @@ int main() {
 		litShader.setVec3("_LightPos", lightTransform.position);
 
 		litShader.setVec3("_Light.color", lightColor);
-		litShader.setVec3("_Light.pos", light.pos);
-		litShader.setFloat("_Light.intensity", light.intensity);
+		litShader.setVec3("_Light.dir", dlight.dir);
+		litShader.setFloat("_Light.intensity", dlight.intensity);
 
 
 
@@ -224,11 +235,11 @@ int main() {
 
 		ImGui::End();
 
-		ImGui::Begin("posectional Light");
+		ImGui::Begin("Directional Light");
 		
-		ImGui::ColorEdit3("Light Color", &light.color.r);
-		ImGui::DragFloat3("Light posection", &light.pos.x);
-		ImGui::SliderFloat("Light Intensity", &light.intensity, 0, 1);
+		ImGui::ColorEdit3("Light Color", &dlight.color.r);
+		ImGui::DragFloat3("Light Direction", &dlight.dir.x);
+		ImGui::SliderFloat("Light Intensity", &dlight.intensity, 0, 1);
 		
 		ImGui::End();
 

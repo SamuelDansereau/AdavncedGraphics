@@ -6,15 +6,16 @@ uniform mat4 _Model;
 uniform mat4 _View;
 uniform mat4 _Projection;
 
-out vec3 Normal;
-
 out struct Vertex{
     vec3 WorldNormal;
-    vec3 WorldPos
+    vec3 WorldPosition;
 }v_out;
 
+//out vec3 WorldNormal;
+//out vec3 WorldPosition;
+
 void main(){    
-    v_out.WorldPos = vec3(_Model * vec4(vPos,1));
-    v_out.WorldNormal = transpose(inverse(mat3(_Model)))* vNormal;
+    v_out.WorldPosition = vec3(_Model * vec4(vPos,1));
+    v_out.WorldNormal = transpose(inverse(mat3(_Model))) * vNormal;
     gl_Position = _Projection * _View * _Model * vec4(vPos,1);
 }
