@@ -76,9 +76,29 @@ struct DirLight {
 	float intensity = 1.0;
 };
 
+struct PointLight {
+	glm::vec3 pos = glm::vec3(1);
+	glm::vec3 color;
+	float intensity;
+	float radius;
+};
+
+struct SpotLight {
+	glm::vec3 pos = glm::vec3(1);
+	glm::vec3 dir = glm::vec3(0, -1, 0);
+	glm::vec3 color = glm::vec3(250, 250, 250);;
+	float intensity = 0;
+	float linearAttenuation;
+	float minAnlge, maxAnlge;
+
+};
+
+#define MAX_LIGHTS 2
 DirLight dlight;
+PointLight plights[MAX_LIGHTS];
+SpotLight slight;
+
 Material mat;
-#define MAX_LIGHTS 8
 
 int main() {
 	if (!glfwInit()) {
@@ -193,6 +213,21 @@ int main() {
 		litShader.setVec3("_dLight.color", dlight.color);
 		litShader.setFloat("_dLight.intensity", dlight.intensity);
 
+		for (int i = 0; i < MAX_LIGHTS; i++)
+		{
+			litShader.setVec3("_pLight[i].pos", plights[i].pos);
+			litShader.setVec3("_pLight[i].color", plights[i].color);
+			litShader.setFloat("_pLight[i].intensity", plights[i].intensity);
+			litShader.setFloat("_pLight[i].radius", plights[i].radius);
+		}
+
+		litShader.setVec3("_sLight.pos", slight.pos);
+		litShader.setVec3("_sLight.dir", slight.dir);
+		litShader.setVec3("_sLight.color", slight.color);
+		litShader.setFloat("_sLight.intensity", slight.intensity);
+		litShader.setFloat("_sLight.linearAttenuation", slight.linearAttenuation);
+		litShader.setFloat("_sLight.minAnlge", slight.minAnlge);
+		litShader.setFloat("_sLight.maxAnlge", slight.maxAnlge);
 
 		//Draw cube
 		litShader.setMat4("_Model", cubeTransform.getModelMatrix());
@@ -236,6 +271,38 @@ int main() {
 		ImGui::SliderFloat("Light Intensity", &dlight.intensity, 0, 1);
 		
 		ImGui::End();
+
+		ImGui::Begin("Point Light 1");
+
+		ImGui::DragFloat3("Light Position", &plights[0].pos.x);
+		ImGui::ColorEdit3("Light Color", &plights[0].color.r);
+		ImGui::SliderFloat("Light Intensity", &plights[0].intensity, 0, 1);
+		ImGui::SliderFloat("radius", &plights[0].radius, 0, 52);
+
+		ImGui::End();
+
+		ImGui::Begin("Point Light 2");
+
+		ImGui::DragFloat3("Light Position", &plights[1].pos.x);
+		ImGui::ColorEdit3("Light Color", &plights[1].color.r);
+		ImGui::SliderFloat("Light Intensity", &plights[1].intensity, 0, 1);
+		ImGui::SliderFloat("radius", &plights[1].radius, 0, 52);
+
+		ImGui::End();
+
+		ImGui::Begin("Spot Light");
+
+		ImGui::DragFloat3("Light Position", &slight.pos.x);
+		ImGui::DragFloat3("Light Direction", &slight.dir.x);
+		ImGui::ColorEdit3("Light Color", &slight.color.r);
+		ImGui::SliderFloat("Light Intensity", &slight.intensity, 0, 1);
+		ImGui::SliderFloat("Linear Attenuation", &slight.linearAttenuation, 0, 52);
+		ImGui::SliderFloat("Max Angle", &slight.maxAnlge, 0, 90);
+		ImGui::SliderFloat("Min Angle", &slight.minAnlge, 0, 90);
+
+
+		ImGui::End();
+
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
