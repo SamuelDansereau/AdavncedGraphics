@@ -61,6 +61,7 @@ const char* texture2File = "Terrazzo.png";
 
 
 int activeT = 1;
+float speed = 1;
 GLuint createTexture(const char* filePath)
 {
 	GLuint texture;
@@ -204,18 +205,17 @@ int main() {
 
 		//Draw
 		litShader.use();
-
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, tex1);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, tex2);
 		if (activeT == 0)
 		{
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, tex1);
-			litShader.setInt("texture1", tex1);
+			litShader.setInt("activeTexture", 0);
 		}
 		else if (activeT == 1)
 		{
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, tex2);
-			litShader.setInt("texture2", tex2);
+			litShader.setInt("activeTexture", 1);
 		}
 
 		
@@ -238,6 +238,9 @@ int main() {
 		//Draw plane
 		litShader.setMat4("_Model", planeTransform.getModelMatrix());
 		planeMesh.draw();
+		litShader.setFloat("_Time", time);
+		litShader.setFloat("_Speed", speed);
+
 
 		//Draw light as a small sphere using unlit shader, ironically.
 		unlitShader.use();
@@ -251,6 +254,7 @@ int main() {
 		ImGui::Begin("Texture");
 
 		ImGui::DragInt("Texture", &activeT,1, 0, 1);
+		ImGui::DragFloat("Speed", &speed, .25, -5, 5);
 		ImGui::End();
 
 		ImGui::Render();
