@@ -4,6 +4,8 @@ out vec4 FragColor;
 in vec3 Normal;
 in vec2 UV;
 
+uniform sampler2D activeTexture;
+
 void main(){         
-    FragColor = vec4(UV.x,UV.y,0.0,1.0f);
+    FragColor = vec4(1,1,1,1.0f) * texture(activeTexture, UV);
 }
