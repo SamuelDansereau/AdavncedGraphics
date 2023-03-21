@@ -57,12 +57,30 @@ glm::vec3 lightPosition = glm::vec3(0.0f, 3.0f, 0.0f);
 bool wireFrame = false;
 
 const char* texture1File = "DiamondPlane.png";
-const char* texture1FileNorm = "DiamondPlaneNormal.png";
+const char* texture1FileNorm = "DiamondPlateNormal.png";
 const char* texture2File = "Terrazzo.png";
 
 
 int activeT = 1;
 float speed = 1;
+
+struct PointLight {
+	glm::vec3 pos = glm::vec3(1);
+	glm::vec3 color = glm::vec3(1, 1, 1);
+	float intensity = 1;
+	float radius = 1;
+};
+
+struct Material
+{
+	glm::vec3 Color = glm::vec3(1, 1, 1);
+	float ambientK = 0.4, diffuseK = 0.16, specularK = 0.9;
+	float shininess = 1;
+};
+
+PointLight plight;
+Material mat;
+
 GLuint createTexture(const char* filePath)
 {
 	GLuint texture;
@@ -101,6 +119,7 @@ GLuint createTexture(const char* filePath)
 
 	return texture;
 }
+float normIntensity;
 
 int main() {
 	if (!glfwInit()) {
@@ -210,25 +229,32 @@ int main() {
 		litShader.use();
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, tex1);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, tex2);
 		glActiveTexture(GL_TEXTURE2);
 		glBindTexture(GL_TEXTURE_2D, tex1Norm);
-		if (activeT == 0)
-		{
-			litShader.setInt("activeTexture", 0);
-		}
-		else if (activeT == 1)
-		{
-			litShader.setInt("activeTexture", 1);
-		}
+		litShader.setInt("activeTexture", 0);
 		litShader.setInt("normalMap", 2);
+		litShader.setFloat("normalIntensity", normIntensity);
 
 		
 
 		litShader.setMat4("_Projection", camera.getProjectionMatrix());
 		litShader.setMat4("_View", camera.getViewMatrix());
 		litShader.setVec3("_LightPos", lightTransform.position);
+
+		litShader.setVec3("camPos", camera.getPosition());
+
+		litShader.setVec3("_Material.Color", mat.Color);
+		litShader.setFloat("_Material.ambinetK", mat.ambientK);
+		litShader.setFloat("_Material.diffuseK", mat.diffuseK);
+		litShader.setFloat("_Material.specularK", mat.specularK);
+		litShader.setFloat("_Material.shininess", mat.shininess);
+
+		litShader.setVec3("_pLight.pos", plight.pos);
+		litShader.setVec3("_pLight.color", plight.color);
+		litShader.setFloat("_pLight.intensity", plight.intensity);
+		litShader.setFloat("_pLight.radius", plight.radius);
+
+
 		//Draw cube
 		litShader.setMat4("_Model", cubeTransform.getModelMatrix());
 		cubeMesh.draw();
@@ -259,10 +285,16 @@ int main() {
 		//Draw UI
 		ImGui::Begin("Settings");
 
+		ImGui::ColorEdit3("Material Color", &mat.Color.r);
+		ImGui::SliderFloat("Ambient", &mat.ambientK, 0, 1);
+		ImGui::SliderFloat("Diffuse", &mat.diffuseK, 0, 1);
+		ImGui::SliderFloat("Specular", &mat.specularK, 0, 1);
+		ImGui::SliderFloat("Shininess", &mat.shininess, 1, 512);
+		ImGui::DragFloat3("Light Position", &plight.pos.x);
+		ImGui::ColorEdit3("Light Color", &plight.color.r);
+		ImGui::SliderFloat("Light Intensity", &plight.intensity, 0, 1);
+		ImGui::SliderFloat("Normal Intensity", &normIntensity, 0, 1);
 
-		ImGui::ColorEdit3("Light Color", &lightColor.r);
-		ImGui::DragFloat3("Light Position", &lightTransform.position.x);
-		ImGui::DragInt("Texture", &activeT,1, 0, 1);
 		//ImGui::DragFloat("Speed", &speed, .25  , -5, 5);
 		ImGui::End();
 

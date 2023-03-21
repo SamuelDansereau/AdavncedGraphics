@@ -157,7 +157,7 @@ namespace ew {
 
 				glm::vec3 position = glm::vec3(x, y, z);
 				glm::vec3 normal = glm::normalize(glm::vec3(x, y, z));
-				glm::vec2 uv = glm::vec2(atan(z / x) / (2.0f * glm::pi<float>()), acos(y) / glm::pi<float>());
+				glm::vec2 uv = glm::vec2(theta / (2.0f * glm::pi<float>()), acos(y) / glm::pi<float>());
 				glm::vec3 tan = glm::vec3(sinf(phi) * cosf(theta), 0, sinf(phi) * sinf(theta));
 
 				meshData.vertices.push_back({ position, normal, uv, tan });
@@ -243,12 +243,13 @@ namespace ew {
 
 		//Sides (facing out)
 		unsigned int sideStartIndex = (unsigned int)meshData.vertices.size();
+		thetaStep = (2.0f * glm::pi<float>()) / (float)numSegments;
 		//Side top ring
 		for (int i = 0; i <= numSegments; i++)
 		{
 			glm::vec3 pos = meshData.vertices[i + 1].position;
 			glm::vec3 normal = glm::normalize((pos - meshData.vertices[0].position));
-			glm::vec2 uv = glm::vec2(atan(pos.z / pos.x) / (2.0f * glm::pi<float>()), pos.y);
+			glm::vec2 uv = glm::vec2(thetaStep * i / (2.0f * glm::pi<float>()), pos.y);
 			glm::vec3 tan = glm::vec3(-cos(i * thetaStep), 0, sin(i * thetaStep));
 			meshData.vertices.push_back(Vertex(pos, normal, uv, tan));
 		}
@@ -257,7 +258,7 @@ namespace ew {
 		{
 			glm::vec3 pos = meshData.vertices[bottomCenterIndex + i + 1].position;
 			glm::vec3 normal = glm::normalize((pos - meshData.vertices[bottomCenterIndex].position));
-			glm::vec2 uv = glm::vec2(atan(pos.z / pos.x) / (2.0f * glm::pi<float>()), pos.y);
+			glm::vec2 uv = glm::vec2(thetaStep * i / (2.0f * glm::pi<float>()), pos.y);
 			glm::vec3 tan = glm::vec3(-cos(i * thetaStep), 0, sin(i * thetaStep));
 			meshData.vertices.push_back(Vertex(pos, normal, uv, tan));
 		}

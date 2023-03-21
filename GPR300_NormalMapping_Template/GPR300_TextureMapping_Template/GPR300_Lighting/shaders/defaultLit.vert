@@ -26,7 +26,7 @@ void main(){
 
     Normal = vNormal;
     UV = vUV;
-    Tangent = vTangent;
+    Tangent = normalize(vec3(_Model * vec4(vTangent,0)));
     vec3 BiTangent = cross(Normal,Tangent);
     TBN = mat3(
     Tangent.x, BiTangent.x, Normal.x,
