@@ -31,6 +31,7 @@ void main()
 		else if(_effect == 2)
 		{
 			vec2 uv = _uv;
+			// I got most of this formula from https://en.wikibooks.org/wiki/OpenGL_Programming/Post-Processing but I flipped in time 
 			uv.x += sin(uv.y * 4 *2*3.14 + _time) / 100;
 			finalCol = texture(_texture, uv);
 			FragColor = finalCol;
