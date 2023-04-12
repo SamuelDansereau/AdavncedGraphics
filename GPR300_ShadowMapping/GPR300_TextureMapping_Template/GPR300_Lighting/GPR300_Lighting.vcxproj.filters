@@ -100,7 +100,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\framebuffer.frag" />
-    <None Include="shaders\framebuffer.vert" />
+    <None Include="shaders\depthOnly.vert" />
+    <None Include="shaders\depthOnly.frag" />
   </ItemGroup>
 </Project>

@@ -92,6 +92,7 @@ bool postProc = false;
 int activeEffect = 0;
 const char* effectNames[5] =
 { "GreyScale", "Invert", "Wave X", "Wave Y", "Wave Both" };
+float minBias = .005f, maxBias = .05f;
 
 GLuint createTexture(const char* filePath)
 {
@@ -140,7 +141,7 @@ int main() {
 	}
 
 
-	GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Lighting", 0, 0);
+	GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Shadows", 0, 0);
 	glfwMakeContextCurrent(window);
 
 	if (glewInit() != GLEW_OK) {
@@ -167,8 +168,11 @@ int main() {
 	ImGui::StyleColorsDark();
 
 	GLuint tex1 = createTexture(texture1File);
-	GLuint tex2 = createTexture(texture2File);
 	GLuint tex1Norm = createTexture(texture1FileNorm);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, tex1);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, tex1Norm);
 
 
 	//Used to draw shapes. This is the shader you will be completing.
@@ -177,7 +181,8 @@ int main() {
 	//Used to draw light sphere
 	Shader unlitShader("shaders/defaultLit.vert", "shaders/unlit.frag");
 
-	Shader framebuffer("shaders/framebuffer.vert", "shaders/framebuffer.frag");
+	Shader depthShader("shaders/depthOnly.vert", "shaders/depthOnly.frag");
+
 
 	ew::MeshData cubeMeshData;
 	ew::createCube(1.0f, 1.0f, 1.0f, cubeMeshData);
@@ -194,7 +199,7 @@ int main() {
 	ew::Mesh cylinderMesh(&cylinderMeshData);
 
 	ew::MeshData quadMeshData;
-	ew::createQuad(2.0f, 2.0f, quadMeshData);
+	ew::createQuad(2, 2, quadMeshData);
 	ew::Mesh quadMesh(&quadMeshData);
 
 	//Enable back face culling
@@ -229,34 +234,27 @@ int main() {
 
 	unsigned int fbo;
 	glGenFramebuffers(1, &fbo);
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
-	unsigned int texture;
-	glGenTextures(1, &texture);
+	unsigned int depth;
+	glGenTextures(1, &depth);
 	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, texture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glBindTexture(GL_TEXTURE_2D, depth);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, 1024, 1024, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
-
-	unsigned int rbo;
-	glGenRenderbuffers(1, &rbo);
-	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCREEN_WIDTH, SCREEN_HEIGHT);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
-
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	
+	
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
 
 	while (!glfwWindowShouldClose(window)) {
 
 		processInput(window);
-		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-		glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-		glClearColor(bgColor.r, bgColor.g, bgColor.b, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glEnable(GL_DEPTH_TEST);
-
+		
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
@@ -265,21 +263,54 @@ int main() {
 		deltaTime = time - lastFrameTime;
 		lastFrameTime = time;
 
+		glViewport(0, 0, 1024, 1024);
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+		glClearColor(bgColor.r, bgColor.g, bgColor.b, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glEnable(GL_DEPTH_TEST);
+
+		glm::mat4 lightView = glm::lookAt(glm::normalize(-dlight.dir) * 10.0f, glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+		glm::mat4 lightProj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, .1f, 15.0f);
+		glm::mat4 lightViewProj = lightProj * lightView;
+		glm::mat4 LightSpace = lightProj * lightView;
+
+		depthShader.use();
+		depthShader.setMat4("_View", LightSpace);
+
+		//Draw cube
+		depthShader.setMat4("_Model", cubeTransform.getModelMatrix());
+		cubeMesh.draw();
+
+		//Draw sphere
+		depthShader.setMat4("_Model", sphereTransform.getModelMatrix());
+		sphereMesh.draw();
+
+		//Draw cylinder
+		depthShader.setMat4("_Model", cylinderTransform.getModelMatrix());
+		cylinderMesh.draw();
+
+		//Draw plane
+		depthShader.setMat4("_Model", planeTransform.getModelMatrix());
+		planeMesh.draw();
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
 		//Draw
+		glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 		litShader.use();
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex1);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, tex1Norm);
 		litShader.setInt("activeTexture", 0);
 		litShader.setInt("normalMap", 1);
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, depth);
+		litShader.setInt("_ShadowMap", 2);
 		litShader.setFloat("normalIntensity", normIntensity);
-
-
 
 		litShader.setMat4("_Projection", camera.getProjectionMatrix());
 		litShader.setMat4("_View", camera.getViewMatrix());
-		litShader.setVec3("_LightPos", lightTransform.position);
+		litShader.setVec3("_LightPos", lightTransform.position);  
+		litShader.setMat4("_LightViewProj", lightViewProj);
+
 
 		litShader.setVec3("camPos", camera.getPosition());
 
@@ -298,6 +329,8 @@ int main() {
 		litShader.setFloat("_pLight.intensity", plight.intensity);
 		litShader.setFloat("_pLight.radius", plight.radius);
 
+		litShader.setFloat("_minBias", minBias);
+		litShader.setFloat("_maxBias", maxBias);
 
 		//Draw cube
 		litShader.setMat4("_Model", cubeTransform.getModelMatrix());
@@ -314,6 +347,8 @@ int main() {
 		//Draw plane
 		litShader.setMat4("_Model", planeTransform.getModelMatrix());
 		planeMesh.draw();
+
+
 		litShader.setFloat("_Time", time);
 		litShader.setFloat("_Speed", speed);
 
@@ -325,19 +360,6 @@ int main() {
 		unlitShader.setMat4("_Model", lightTransform.getModelMatrix());
 		unlitShader.setVec3("_Color", lightColor);
 		sphereMesh.draw();
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glDisable(GL_DEPTH_TEST);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		framebuffer.use();
-		framebuffer.setInt("_post", int(postProc));
-		framebuffer.setInt("_effect", activeEffect);
-		framebuffer.setInt("_texture", 2);
-		framebuffer.setFloat("_time", time);
-		quadMesh.draw();
-
-
 
 		//Draw UI
 		ImGui::Begin("Settings");
@@ -355,9 +377,10 @@ int main() {
 		//ImGui::DragFloat("Speed", &speed, .25  , -5, 5);
 		ImGui::End();
 
-		ImGui::Begin("Post Processing");
-		ImGui::Checkbox("Post Processing on", &postProc);
-		ImGui::Combo("Effect", &activeEffect, effectNames, IM_ARRAYSIZE(effectNames));
+		ImGui::Begin("Shadow Mapping");
+		ImGui::SliderFloat("Minimum Bias", &minBias, 0.001, .009);
+		ImGui::SliderFloat("Maximum Bias", &maxBias, 0.01, .1);
+
 		ImGui::End();
 
 		ImGui::Render();
@@ -370,11 +393,13 @@ int main() {
 	}
 
 	glDeleteFramebuffers(1, &fbo);
-	glDeleteTextures(1, &texture);
+	glDeleteTextures(2, &depth);
+	//glDeleteTextures(1, &texture);
 
 	glfwTerminate();
 	return 0;
 }
+
 //Author: Eric Winebrenner
 void resizeFrameBufferCallback(GLFWwindow* window, int width, int height)
 {
