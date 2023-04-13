@@ -21,9 +21,6 @@ out vec3 Tangent;
 out mat3 TBN;
 out vec4 lightSpacePos;
 
-
-
-
 void main(){   
     v_out.WorldPosition = vec3(_Model * vec4(vPos,1));
 
@@ -48,4 +45,5 @@ void main(){
     lightSpacePos = _LightViewProj * _Model * vec4(vPos, 1);
 
     gl_Position = _Projection * _View * _Model * vec4(vPos,1);
+
 }

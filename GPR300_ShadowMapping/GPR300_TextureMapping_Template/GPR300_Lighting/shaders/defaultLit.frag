@@ -29,57 +29,9 @@ struct DirLight{
     float intensity;
 };
 
-
-struct PointLight{
-    vec3 pos;
-    vec3 color;
-    float intensity;
-    float radius;
-};
-
 uniform Material _Material;
-uniform PointLight _pLight;
 uniform DirLight _dLight;
 uniform vec3 camPos;
-
-vec3 calcBlinnPhong(float lightIntensity, vec3 dir, vec3 normal)
-{
-    //Diffuse
-    vec3 norm = normalize(v_out.WorldNormal * normal);
-    dir = normalize(-dir);
-    vec3 diffuse = _Material.diffuseK * max(dot(dir, norm),0.0f) * _Material.Color * lightIntensity;
-
-    //Specular
-    vec3 dirToView = normalize(camPos - v_out.WorldPosition);
-    vec3 specular = _Material.specularK * pow(max(dot(norm, normalize(dirToView)),0),_Material.shininess) * _Material.Color * lightIntensity;
-
-    return diffuse + specular;
-}
-
-vec3 calcDirectionalLight(DirLight dl, vec3 norm, float shadow)
-{
-    vec3 blinnPhong = calcBlinnPhong(dl.intensity, dl.dir, norm) * (1.0 * shadow);
-    //Ambient
-    vec3 ambient = _Material.ambientK * _Material.Color * dl.intensity; 
-    blinnPhong += ambient;
-    vec3 light = blinnPhong * dl.color;
-    return light;
-}
-
-vec3 calcPointLight(PointLight pl, vec3 normal)
-{
-    vec3 dir = pl.pos - v_out.WorldNormal;
-    dir = normalize(dir);
-    float dist = length(dir);
-
-
-    vec3 blinnPhong = calcBlinnPhong(pl.intensity, dir, normal);
-
-    vec3 light = blinnPhong * pl.color;
-    float la = pow((pl.radius/max(pl.radius, dist)),2);
-
-    return light * la;
-}
 
 float calcShadow(sampler2D sm, vec4 lsp, vec3 norm, vec3 toLight)
 {
@@ -102,15 +54,25 @@ float calcShadow(sampler2D sm, vec4 lsp, vec3 norm, vec3 toLight)
     return allShadows;
 }
 
-uniform float _Time;	
-uniform float _Speed;
-float t = _Time / _Speed;
 
-void main(){    
-	vec3 normal = texture(normalMap,UV).rgb;
-	normal = normalize(normal * 2.0 - 1.0);
-    normal *= vec3(normalIntensity, normalIntensity, 1);
-    float shadow = calcShadow(_ShadowMap, lightSpacePos, normal, _dLight.dir);
-    vec3 lightColor = calcDirectionalLight(_dLight, normal, shadow);    //calcPointLight(_pLight, normal);
-	FragColor = vec4(lightColor * _Material.Color, 1) * texture(activeTexture, UV);
-} 
+void main(){   
+
+    //Andrew let me borrow his directional light since mine wasn't working well and we thought it might be why the shadows broke 
+    vec3 normal = normalize(v_out.WorldNormal);
+
+    vec3 ambient = _dLight.color * _Material.ambientK * _dLight.intensity/ 100 ;
+
+    vec3 diffuse = _Material.diffuseK * max(dot(normalize(-_dLight.dir), normal), 0) * _dLight.color * _dLight.intensity / 100;
+
+    vec3 viewer = normalize(camPos - v_out.WorldPosition);
+    vec3 H = normalize(viewer + normalize(-_dLight.dir));
+    vec3 specular = _Material.specularK * pow(max(dot(normal, H), 0), _Material.shininess) * _dLight.color * _dLight.intensity / 100;
+
+    vec3 lightColor = diffuse + specular;
+
+    float shadow = calcShadow(_ShadowMap, lightSpacePos, normal, -_dLight.dir);
+    lightColor *= (1 - shadow);
+    lightColor + ambient;
+
+    FragColor = vec4(lightColor * _Material.Color, 1) * texture(activeTexture, UV);
+}
