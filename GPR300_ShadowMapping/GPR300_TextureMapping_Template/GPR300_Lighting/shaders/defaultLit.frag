@@ -1,4 +1,3 @@
-
 #version 450                          
 out vec4 FragColor;
 
@@ -114,4 +113,4 @@ void main(){
     float shadow = calcShadow(_ShadowMap, lightSpacePos, normal, _dLight.dir);
     vec3 lightColor = calcDirectionalLight(_dLight, normal, shadow);    //calcPointLight(_pLight, normal);
 	FragColor = vec4(lightColor * _Material.Color, 1) * texture(activeTexture, UV);
-}
+} 

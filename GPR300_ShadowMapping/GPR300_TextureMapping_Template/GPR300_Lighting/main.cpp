@@ -134,7 +134,366 @@ GLuint createTexture(const char* filePath)
 }
 float normIntensity;
 
+
 int main() {
+	if (!glfwInit()) {
+		printf("glfw failed to init");
+		return 1;
+	}
+
+
+	GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Shadows", 0, 0);
+	glfwMakeContextCurrent(window);
+
+	if (glewInit() != GLEW_OK) {
+		printf("glew failed to init");
+		return 1;
+	}
+
+	glfwSetFramebufferSizeCallback(window, resizeFrameBufferCallback);
+	glfwSetKeyCallback(window, keyboardCallback);
+	glfwSetScrollCallback(window, mouseScrollCallback);
+	glfwSetCursorPosCallback(window, mousePosCallback);
+	glfwSetMouseButtonCallback(window, mouseButtonCallback);
+
+	//Hide cursor
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+	// Setup UI Platform/Renderer backends
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init();
+
+	//Dark UI theme.
+	ImGui::StyleColorsDark();
+
+	GLuint tex1 = createTexture(texture1File);
+	GLuint tex1Norm = createTexture(texture1FileNorm);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, tex1);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, tex1Norm);
+
+
+	//Used to draw shapes. This is the shader you will be completing.
+	Shader litShader("shaders/defaultLit.vert", "shaders/defaultLit.frag");
+
+	//Used to draw light sphere
+	Shader unlitShader("shaders/defaultLit.vert", "shaders/unlit.frag");
+
+	Shader depthShader("shaders/depthOnly.vert", "shaders/depthOnly.frag");
+
+
+	ew::MeshData cubeMeshData;
+	ew::createCube(1.0f, 1.0f, 1.0f, cubeMeshData);
+	ew::MeshData sphereMeshData;
+	ew::createSphere(0.5f, 64, sphereMeshData);
+	ew::MeshData cylinderMeshData;
+	ew::createCylinder(1.0f, 0.5f, 64, cylinderMeshData);
+	ew::MeshData planeMeshData;
+	ew::createPlane(1.0f, 1.0f, planeMeshData);
+
+	ew::Mesh cubeMesh(&cubeMeshData);
+	ew::Mesh sphereMesh(&sphereMeshData);
+	ew::Mesh planeMesh(&planeMeshData);
+	ew::Mesh cylinderMesh(&cylinderMeshData);
+
+	ew::MeshData quadMeshData;
+	ew::createQuad(2, 2, quadMeshData);
+	ew::Mesh quadMesh(&quadMeshData);
+
+	//Enable back face culling
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+
+	//Enable blending
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	//Enable depth testing
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+
+	//Initialize shape transforms
+	ew::Transform cubeTransform;
+	ew::Transform sphereTransform;
+	ew::Transform planeTransform;
+	ew::Transform cylinderTransform;
+	ew::Transform lightTransform;
+
+	cubeTransform.position = glm::vec3(-2.0f, 0.0f, 0.0f);
+	sphereTransform.position = glm::vec3(0.0f, 0.0f, 0.0f);
+
+	planeTransform.position = glm::vec3(0.0f, -1.0f, 0.0f);
+	planeTransform.scale = glm::vec3(10.0f);
+
+	cylinderTransform.position = glm::vec3(2.0f, 0.0f, 0.0f);
+
+	lightTransform.scale = glm::vec3(0.5f);
+	lightTransform.position = glm::vec3(0.0f, 5.0f, 0.0f);
+
+	unsigned int fbo;
+	glGenFramebuffers(1, &fbo);
+
+	unsigned int depth;
+	glGenTextures(1, &depth);
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, depth);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, 1024, 1024, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+
+
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+
+	while (!glfwWindowShouldClose(window)) {
+
+		processInput(window);
+
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		float time = (float)glfwGetTime();
+		deltaTime = time - lastFrameTime;
+		lastFrameTime = time;
+
+		glViewport(0, 0, 1024, 1024);
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+		glClearColor(bgColor.r, bgColor.g, bgColor.b, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glEnable(GL_DEPTH_TEST);
+
+		glm::mat4 lightView = glm::lookAt(glm::normalize(-dlight.dir) * 10.0f, glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+		glm::mat4 lightProj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, .1f, 15.0f);
+		glm::mat4 lightViewProj = lightProj * lightView;
+		glm::mat4 LightSpace = lightProj * lightView;
+
+		depthShader.use();
+		depthShader.setMat4("_View", LightSpace);
+
+		//Draw cube
+		depthShader.setMat4("_Model", cubeTransform.getModelMatrix());
+		cubeMesh.draw();
+
+		//Draw sphere
+		depthShader.setMat4("_Model", sphereTransform.getModelMatrix());
+		sphereMesh.draw();
+
+		//Draw cylinder
+		depthShader.setMat4("_Model", cylinderTransform.getModelMatrix());
+		cylinderMesh.draw();
+
+		//Draw plane
+		depthShader.setMat4("_Model", planeTransform.getModelMatrix());
+		planeMesh.draw();
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
+		//Draw
+		glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+		litShader.use();
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, tex1);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, tex1Norm);
+		litShader.setInt("activeTexture", 0);
+		litShader.setInt("normalMap", 1);
+		litShader.setFloat("normalIntensity", normIntensity);
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, depth);
+		litShader.setInt("_ShadowMap", 2);
+		litShader.setFloat("normalIntensity", normIntensity);
+
+		litShader.setMat4("_Projection", camera.getProjectionMatrix());
+		litShader.setMat4("_View", camera.getViewMatrix());
+		litShader.setVec3("_LightPos", lightTransform.position);
+		litShader.setMat4("_LightViewProj", lightViewProj);
+
+
+		litShader.setVec3("camPos", camera.getPosition());
+
+		litShader.setVec3("_Material.Color", mat.Color);
+		litShader.setFloat("_Material.ambinetK", mat.ambientK);
+		litShader.setFloat("_Material.diffuseK", mat.diffuseK);
+		litShader.setFloat("_Material.specularK", mat.specularK);
+		litShader.setFloat("_Material.shininess", mat.shininess);
+
+		litShader.setVec3("_dLight.dir", dlight.dir);
+		litShader.setVec3("_dLight.color", dlight.color);
+		litShader.setFloat("_dLight.intensity", dlight.intensity);
+
+		litShader.setFloat("_minBias", minBias);
+		litShader.setFloat("_maxBias", maxBias);
+
+		//Draw cube
+		litShader.setMat4("_Model", cubeTransform.getModelMatrix());
+		cubeMesh.draw();
+
+		//Draw sphere
+		litShader.setMat4("_Model", sphereTransform.getModelMatrix());
+		sphereMesh.draw();
+
+		//Draw cylinder
+		litShader.setMat4("_Model", cylinderTransform.getModelMatrix());
+		cylinderMesh.draw();
+
+		//Draw plane
+		litShader.setMat4("_Model", planeTransform.getModelMatrix());
+		planeMesh.draw();
+		litShader.setFloat("_Time", time);
+		litShader.setFloat("_Speed", speed);
+
+
+		//Draw light as a small sphere using unlit shader, ironically.
+		unlitShader.use();
+		unlitShader.setMat4("_Projection", camera.getProjectionMatrix());
+		unlitShader.setMat4("_View", camera.getViewMatrix());
+		unlitShader.setMat4("_Model", lightTransform.getModelMatrix());
+		unlitShader.setVec3("_Color", lightColor);
+		sphereMesh.draw();
+
+		//Draw UI
+		ImGui::Begin("Settings");
+
+		ImGui::ColorEdit3("Material Color", &mat.Color.r);
+		ImGui::SliderFloat("Ambient", &mat.ambientK, 0, 1);
+		ImGui::SliderFloat("Diffuse", &mat.diffuseK, 0, 1);
+		ImGui::SliderFloat("Specular", &mat.specularK, 0, 1);
+		ImGui::SliderFloat("Shininess", &mat.shininess, 1, 512);
+		ImGui::ColorEdit3("Light Color", &dlight.color.r);
+		ImGui::DragFloat3("Light Direction", &dlight.dir.x);
+		ImGui::SliderFloat("Light Intensity", &dlight.intensity, 0, 1);
+		ImGui::SliderFloat("Normal Intensity", &normIntensity, 0, 1);
+
+		//ImGui::DragFloat("Speed", &speed, .25  , -5, 5);
+		ImGui::End();
+
+		ImGui::Begin("Shadow Mapping");
+		ImGui::SliderFloat("Minimum Bias", &minBias, 0.001, .009);
+		ImGui::SliderFloat("Maximum Bias", &maxBias, 0.01, .1);
+
+		ImGui::End();
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+		glfwPollEvents();
+
+
+
+		glfwSwapBuffers(window);
+	}
+
+	glDeleteFramebuffers(1, &fbo);
+	glDeleteTextures(2, &depth);
+	//glDeleteTextures(1, &texture);
+
+	glfwTerminate();
+	return 0;
+}
+//Author: Eric Winebrenner
+void resizeFrameBufferCallback(GLFWwindow* window, int width, int height)
+{
+	SCREEN_WIDTH = width;
+	SCREEN_HEIGHT = height;
+	camera.setAspectRatio((float)SCREEN_WIDTH / SCREEN_HEIGHT);
+	glViewport(0, 0, width, height);
+}
+//Author: Eric Winebrenner
+void keyboardCallback(GLFWwindow* window, int keycode, int scancode, int action, int mods)
+{
+	if (keycode == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+		glfwSetWindowShouldClose(window, true);
+	}
+	//Reset camera
+	if (keycode == GLFW_KEY_R && action == GLFW_PRESS) {
+		camera.setPosition(glm::vec3(0, 0, 5));
+		camera.setYaw(-90.0f);
+		camera.setPitch(0.0f);
+		firstMouseInput = false;
+	}
+	if (keycode == GLFW_KEY_1 && action == GLFW_PRESS) {
+		wireFrame = !wireFrame;
+		glPolygonMode(GL_FRONT_AND_BACK, wireFrame ? GL_LINE : GL_FILL);
+	}
+}
+//Author: Eric Winebrenner
+void mouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	if (abs(yoffset) > 0) {
+		float fov = camera.getFov() - (float)yoffset * CAMERA_ZOOM_SPEED;
+		camera.setFov(fov);
+	}
+}
+//Author: Eric Winebrenner
+void mousePosCallback(GLFWwindow* window, double xpos, double ypos)
+{
+	if (glfwGetInputMode(window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED) {
+		return;
+	}
+	if (!firstMouseInput) {
+		prevMouseX = xpos;
+		prevMouseY = ypos;
+		firstMouseInput = true;
+	}
+	float yaw = camera.getYaw() + (float)(xpos - prevMouseX) * MOUSE_SENSITIVITY;
+	camera.setYaw(yaw);
+	float pitch = camera.getPitch() - (float)(ypos - prevMouseY) * MOUSE_SENSITIVITY;
+	pitch = glm::clamp(pitch, -89.9f, 89.9f);
+	camera.setPitch(pitch);
+	prevMouseX = xpos;
+	prevMouseY = ypos;
+}
+//Author: Eric Winebrenner
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+{
+	//Toggle cursor lock
+	if (button == MOUSE_TOGGLE_BUTTON && action == GLFW_PRESS) {
+		int inputMode = glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED;
+		glfwSetInputMode(window, GLFW_CURSOR, inputMode);
+		glfwGetCursorPos(window, &prevMouseX, &prevMouseY);
+	}
+}
+
+//Author: Eric Winebrenner
+//Returns -1, 0, or 1 depending on keys held
+float getAxis(GLFWwindow* window, int positiveKey, int negativeKey) {
+	float axis = 0.0f;
+	if (glfwGetKey(window, positiveKey)) {
+		axis++;
+	}
+	if (glfwGetKey(window, negativeKey)) {
+		axis--;
+	}
+	return axis;
+}
+
+//Author: Eric Winebrenner
+//Get input every frame
+void processInput(GLFWwindow* window) {
+
+	float moveAmnt = CAMERA_MOVE_SPEED * deltaTime;
+
+	//Get camera vectors
+	glm::vec3 forward = camera.getForward();
+	glm::vec3 right = glm::normalize(glm::cross(forward, glm::vec3(0, 1, 0)));
+	glm::vec3 up = glm::normalize(glm::cross(forward, right));
+
+	glm::vec3 position = camera.getPosition();
+	position += forward * getAxis(window, GLFW_KEY_W, GLFW_KEY_S) * moveAmnt;
+	position += right * getAxis(window, GLFW_KEY_D, GLFW_KEY_A) * moveAmnt;
+	position += up * getAxis(window, GLFW_KEY_Q, GLFW_KEY_E) * moveAmnt;
+	camera.setPosition(position);
+}
+
+/*int main() {
 	if (!glfwInit()) {
 		printf("glfw failed to init");
 		return 1;
@@ -299,8 +658,13 @@ int main() {
 		//Draw
 		glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 		litShader.use();
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, tex1);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, tex1Norm);
 		litShader.setInt("activeTexture", 0);
 		litShader.setInt("normalMap", 1);
+		litShader.setFloat("normalIntensity", normIntensity);
 		glActiveTexture(GL_TEXTURE2);
 		glBindTexture(GL_TEXTURE_2D, depth);
 		litShader.setInt("_ShadowMap", 2);
@@ -308,7 +672,7 @@ int main() {
 
 		litShader.setMat4("_Projection", camera.getProjectionMatrix());
 		litShader.setMat4("_View", camera.getViewMatrix());
-		litShader.setVec3("_LightPos", lightTransform.position);  
+		litShader.setVec3("_LightPos", lightTransform.position);
 		litShader.setMat4("_LightViewProj", lightViewProj);
 
 
@@ -323,11 +687,6 @@ int main() {
 		litShader.setVec3("_dLight.dir", dlight.dir);
 		litShader.setVec3("_dLight.color", dlight.color);
 		litShader.setFloat("_dLight.intensity", dlight.intensity);
-
-		litShader.setVec3("_pLight.pos", plight.pos);
-		litShader.setVec3("_pLight.color", plight.color);
-		litShader.setFloat("_pLight.intensity", plight.intensity);
-		litShader.setFloat("_pLight.radius", plight.radius);
 
 		litShader.setFloat("_minBias", minBias);
 		litShader.setFloat("_maxBias", maxBias);
@@ -347,8 +706,6 @@ int main() {
 		//Draw plane
 		litShader.setMat4("_Model", planeTransform.getModelMatrix());
 		planeMesh.draw();
-
-
 		litShader.setFloat("_Time", time);
 		litShader.setFloat("_Speed", speed);
 
@@ -398,99 +755,4 @@ int main() {
 
 	glfwTerminate();
 	return 0;
-}
-
-//Author: Eric Winebrenner
-void resizeFrameBufferCallback(GLFWwindow* window, int width, int height)
-{
-	SCREEN_WIDTH = width;
-	SCREEN_HEIGHT = height;
-	camera.setAspectRatio((float)SCREEN_WIDTH / SCREEN_HEIGHT);
-	glViewport(0, 0, width, height);
-}
-//Author: Eric Winebrenner
-void keyboardCallback(GLFWwindow* window, int keycode, int scancode, int action, int mods)
-{
-	if (keycode == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-		glfwSetWindowShouldClose(window, true);
-	}
-	//Reset camera
-	if (keycode == GLFW_KEY_R && action == GLFW_PRESS) {
-		camera.setPosition(glm::vec3(0, 0, 5));
-		camera.setYaw(-90.0f);
-		camera.setPitch(0.0f);
-		firstMouseInput = false;
-	}
-	if (keycode == GLFW_KEY_1 && action == GLFW_PRESS) {
-		wireFrame = !wireFrame;
-		glPolygonMode(GL_FRONT_AND_BACK, wireFrame ? GL_LINE : GL_FILL);
-	}
-}
-//Author: Eric Winebrenner
-void mouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
-{
-	if (abs(yoffset) > 0) {
-		float fov = camera.getFov() - (float)yoffset * CAMERA_ZOOM_SPEED;
-		camera.setFov(fov);
-	}
-}
-//Author: Eric Winebrenner
-void mousePosCallback(GLFWwindow* window, double xpos, double ypos)
-{
-	if (glfwGetInputMode(window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED) {
-		return;
-	}
-	if (!firstMouseInput) {
-		prevMouseX = xpos;
-		prevMouseY = ypos;
-		firstMouseInput = true;
-	}
-	float yaw = camera.getYaw() + (float)(xpos - prevMouseX) * MOUSE_SENSITIVITY;
-	camera.setYaw(yaw);
-	float pitch = camera.getPitch() - (float)(ypos - prevMouseY) * MOUSE_SENSITIVITY;
-	pitch = glm::clamp(pitch, -89.9f, 89.9f);
-	camera.setPitch(pitch);
-	prevMouseX = xpos;
-	prevMouseY = ypos;
-}
-//Author: Eric Winebrenner
-void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
-{
-	//Toggle cursor lock
-	if (button == MOUSE_TOGGLE_BUTTON && action == GLFW_PRESS) {
-		int inputMode = glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED;
-		glfwSetInputMode(window, GLFW_CURSOR, inputMode);
-		glfwGetCursorPos(window, &prevMouseX, &prevMouseY);
-	}
-}
-
-//Author: Eric Winebrenner
-//Returns -1, 0, or 1 depending on keys held
-float getAxis(GLFWwindow* window, int positiveKey, int negativeKey) {
-	float axis = 0.0f;
-	if (glfwGetKey(window, positiveKey)) {
-		axis++;
-	}
-	if (glfwGetKey(window, negativeKey)) {
-		axis--;
-	}
-	return axis;
-}
-
-//Author: Eric Winebrenner
-//Get input every frame
-void processInput(GLFWwindow* window) {
-
-	float moveAmnt = CAMERA_MOVE_SPEED * deltaTime;
-
-	//Get camera vectors
-	glm::vec3 forward = camera.getForward();
-	glm::vec3 right = glm::normalize(glm::cross(forward, glm::vec3(0, 1, 0)));
-	glm::vec3 up = glm::normalize(glm::cross(forward, right));
-
-	glm::vec3 position = camera.getPosition();
-	position += forward * getAxis(window, GLFW_KEY_W, GLFW_KEY_S) * moveAmnt;
-	position += right * getAxis(window, GLFW_KEY_D, GLFW_KEY_A) * moveAmnt;
-	position += up * getAxis(window, GLFW_KEY_Q, GLFW_KEY_E) * moveAmnt;
-	camera.setPosition(position);
-}
+} */

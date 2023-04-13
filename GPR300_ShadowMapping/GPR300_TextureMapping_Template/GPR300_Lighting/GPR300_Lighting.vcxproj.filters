@@ -102,5 +102,7 @@
   <ItemGroup>
     <None Include="shaders\depthOnly.vert" />
     <None Include="shaders\depthOnly.frag" />
+    <None Include="shaders\framebuffer.frag" />
+    <None Include="shaders\framebuffer.vert" />
   </ItemGroup>
 </Project>
