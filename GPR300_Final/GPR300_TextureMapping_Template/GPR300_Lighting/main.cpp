@@ -108,7 +108,7 @@ int main() {
 	}
 
 
-	GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Lighting", 0, 0);
+	GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Geometry Shader", 0, 0);
 	glfwMakeContextCurrent(window);
 
 	if (glewInit() != GLEW_OK) {

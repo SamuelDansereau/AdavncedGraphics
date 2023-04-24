@@ -14,19 +14,19 @@ in VS_OUT
 
 void main() {    
     fColor = gs_in[0].color;
-    gl_Position = pos + vec4(-0.15, -0.15, 0.0, 0.0); 
+    gl_Position = pos + vec4(-0.3, -0.3, 0.0, 0.0); 
     EmitVertex();
 
-    gl_Position = pos + vec4(0.15, -0.15, 0.0, 0.0); 
+    gl_Position = pos + vec4(0.3, -0.3, 0.0, 0.0); 
     EmitVertex();
 
-    gl_Position = pos + vec4(-0.15, 0.15, 0.0, 0.0); 
+    gl_Position = pos + vec4(-0.3, 0.3, 0.0, 0.0); 
     EmitVertex();
 
-    gl_Position = pos + vec4(0.15, 0.15, 0.0, 0.0); 
+    gl_Position = pos + vec4(0.3, 0.3, 0.0, 0.0); 
     EmitVertex();
 
-    gl_Position = pos + vec4(0.0, 0.3, 0.0, 0.0); 
+    gl_Position = pos + vec4(0.0, 0.6, 0.0, 0.0); 
     EmitVertex();
 
     EndPrimitive();
