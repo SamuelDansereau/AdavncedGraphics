@@ -62,6 +62,10 @@ const char* texture2File = "Terrazzo.png";
 
 int activeT = 1;
 float speed = 1;
+
+int activeGeom = 0;
+const char* geometryNames[5] =
+{ "House", "Big House",  "Bird Beak I guess", "Kite", "Sand Crawler From Star Wars?"};
 GLuint createTexture(const char* filePath)
 {
 	GLuint texture;
@@ -216,10 +220,10 @@ int main() {
 
 		float points[] =
 		{
-			-0.5f,  0.5f, 1.0f, 0.0f, 0.0f, // top-left
-			 0.5f,  0.5f, 0.0f, 1.0f, 0.0f, // top-right
-			 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, // bottom-right
-			-0.5f, -0.5f, 1.0f, 1.0f, 0.0f  // bottom-left
+			-0.45f,  0.45f,
+			 0.45f,  0.45f,
+			 0.45f, -0.45f,
+			-0.45f, -0.45f,
 		};
 
 		glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -232,14 +236,23 @@ int main() {
 
 		glDrawArrays(GL_POINTS, 0, 4);
 		
+		GLuint shader = glCreateShader(GL_GEOMETRY_SHADER);
+		const char* shaderSource = "shaders/defaultLit.geom";
+		glShaderSource(shader, 1, &shaderSource, NULL);
+		glCompileShader(shader);
 		
-
+		GLint posAttrib = glGetAttribLocation(shader , "pos");
+		glEnableVertexAttribArray(posAttrib);
+		glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
 		
 
 		litShader.setMat4("_Projection", camera.getProjectionMatrix());
 		litShader.setMat4("_View", camera.getViewMatrix());
 		litShader.setVec3("_LightPos", lightTransform.position);
+
+		litShader.setInt("_activeGeom", activeGeom);
+
 		//Draw cube
 		/*litShader.setMat4("_Model", cubeTransform.getModelMatrix());
 		cubeMesh.draw();
@@ -271,7 +284,7 @@ int main() {
 
 		//Draw UI
 		ImGui::Begin("Geometry");
-
+		ImGui::Combo("Effect", &activeGeom, geometryNames, IM_ARRAYSIZE(geometryNames));
 		ImGui::End();
 
 		ImGui::Render();
